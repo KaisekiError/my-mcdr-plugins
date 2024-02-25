@@ -6,3 +6,4 @@
 *.iml
 out
 gen
+/qq_bot/qq_bot/qq_api.py

@@ -6,6 +6,7 @@ from mcdreforged.info_reactor.info import Info
 from aiocqhttp import CQHttp, Event
 from asyncio import AbstractEventLoop
 from qq_api import MessageEvent
+from online_player_api import get_player_list
 import re
 
 
@@ -72,10 +73,16 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
                event: MessageEvent):  # qq群聊向minecraft发送消息
     raw_message = event.message
     user_id = event.sender['card']
-    if re.match('^!!mc .*', str(raw_message)):
+    if re.match('^!!mc .*', str(raw_message)):    # !!mc指令
         processed_message = re.sub(r'!!mc\s*(.*)', r'\1', str(raw_message))
         server.logger.info(f'[QQ]§e{user_id} : {processed_message}')
         server.say(f'§e[QQ] {user_id} : {processed_message}')
+    elif raw_message == "!!list" or "！！list":    # !!list指令
+        players = get_player_list()
+        player_count = len(get_player_list())
+        send_msg("{server_name}服务器目前共有{player_count}名玩家:{players}".format(
+            server_name=config.server_name, player_count=player_count,
+            players=str(players).replace('[', '').replace(']', '')))
     elif raw_message.startswith('/'):
         is_command = True
     else:

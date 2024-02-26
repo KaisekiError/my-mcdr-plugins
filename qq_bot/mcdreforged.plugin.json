@@ -7,6 +7,7 @@
     "link": "https://github.com/KaisekiError/my-mcdr-plugins",
     "dependencies": {
        "mcdreforged": ">=2.0.0-alpha.1",
-        "qq_api":">=1.3.0"
+        "qq_api": ">=1.3.0",
+      "online_player_api": ">=1.0.0"
     }
 }

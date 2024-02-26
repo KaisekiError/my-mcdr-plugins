@@ -1,5 +1,7 @@
 from mcdreforged.api.types import PluginServerInterface
 from mcdreforged.api.utils import Serializable
+from mcdreforged.command.builder.nodes.arguments import GreedyText
+from mcdreforged.command.builder.nodes.basic import Literal
 from mcdreforged.info_reactor.info import Info
 from aiocqhttp import CQHttp, Event
 from asyncio import AbstractEventLoop
@@ -34,6 +36,16 @@ def on_load(server: PluginServerInterface, prev):
     server.register_event_listener("qq_api.on_notice", on_notice)
     server.register_event_listener("qq_api.on_request", on_request)
 
+    def qq(src, ctx):
+        player = src.player if src.is_player else "Console"
+        # 通过qq指令发送的消息会同步发送到主群中
+        msg = f"[{config.server_name}] <{player}> {ctx['message']}"
+        send_msg(msg)
+
+    server.register_help_message("!!qq <msg>", "向QQ群发送消息")
+    server.register_command(Literal('!!qq').
+                            then(GreedyText("message").runs(qq)))  # 这段拿来的看不懂
+
 
 def on_server_startup(server: PluginServerInterface):
     server.logger.info(f'{config.server_name} 游戏服务器已启动')
@@ -57,7 +69,7 @@ def on_player_left(server: PluginServerInterface, player: str):
 
 
 def on_message(server: PluginServerInterface, bot: CQHttp,
-               event: MessageEvent):    # qq群聊向minecraft发送消息
+               event: MessageEvent):  # qq群聊向minecraft发送消息
     raw_message = event.message
     user_id = event.sender['card']
     if re.match('^!!mc .*', str(raw_message)):
@@ -78,6 +90,6 @@ def on_request(server: PluginServerInterface, bot: CQHttp, event: Event):
     pass
 
 
-def send_msg(message: str):    # 服务端向群聊发送消息
+def send_msg(message: str):  # 服务端向群聊发送消息
     event_loop.create_task(
         final_bot.send_group_msg(group_id=group, message=message))

@@ -4,6 +4,7 @@ from mcdreforged.info_reactor.info import Info
 from aiocqhttp import CQHttp, Event
 from asyncio import AbstractEventLoop
 from qq_api import MessageEvent
+import re
 
 
 class Config(Serializable):
@@ -56,10 +57,17 @@ def on_player_left(server: PluginServerInterface, player: str):
 
 
 def on_message(server: PluginServerInterface, bot: CQHttp,
-               event: MessageEvent):
+               event: MessageEvent):    # qq群聊向minecraft发送消息
+    raw_message = event.message
     user_id = event.sender['card']
-    server.logger.info(f'[QQ]§e{user_id} : {event.message}')
-    server.say(f'§e[QQ] {user_id} : {event.message}')
+    if re.match('^!!mc .*', str(raw_message)):
+        processed_message = re.sub(r'!!mc\s*(.*)', r'\1', str(raw_message))
+        server.logger.info(f'[QQ]§e{user_id} : {processed_message}')
+        server.say(f'§e[QQ] {user_id} : {processed_message}')
+    elif raw_message.startswith('/'):
+        is_command = True
+    else:
+        pass
 
 
 def on_notice(server: PluginServerInterface, bot: CQHttp, event: Event):

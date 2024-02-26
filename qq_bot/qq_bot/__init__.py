@@ -29,6 +29,9 @@ def on_load(server: PluginServerInterface, prev):
                                        target_class=Config)
     group = config.group
     send_msg(f'{config.server_name} - MCDR服务端已启动! 准备好啦喵~')
+    server.register_event_listener('qq_api.on_message', on_message)
+    server.register_event_listener("qq_api.on_notice", on_notice)
+    server.register_event_listener("qq_api.on_request", on_request)
 
 
 def on_server_startup(server: PluginServerInterface):
@@ -54,12 +57,17 @@ def on_player_left(server: PluginServerInterface, player: str):
 
 def on_message(server: PluginServerInterface, bot: CQHttp,
                event: MessageEvent):
-    content = event.content
-    user_id = str(event.user_id)
-    if content.startswith('/'):
-        is_command = True
-    else:
-        server.broadcast(f'§7[QQ]{user_id} : {content}')
+    user_id = event.sender['card']
+    server.logger.info(f'[QQ]§e{user_id} : {event.message}')
+    server.say(f'§e[QQ] {user_id} : {event.message}')
+
+
+def on_notice(server: PluginServerInterface, bot: CQHttp, event: Event):
+    pass
+
+
+def on_request(server: PluginServerInterface, bot: CQHttp, event: Event):
+    pass
 
 
 def send_msg(message: str):    # 服务端向群聊发送消息

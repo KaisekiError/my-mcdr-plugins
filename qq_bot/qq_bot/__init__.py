@@ -72,12 +72,12 @@ def on_player_left(server: PluginServerInterface, player: str):
 def on_message(server: PluginServerInterface, bot: CQHttp,
                event: MessageEvent):  # qq群聊向minecraft发送消息
     raw_message = event.message
-    user_id = event.sender['card']
+    user_id = event.sender['nickname']
     if re.match('^!!mc .*', str(raw_message)):    # !!mc指令
         processed_message = re.sub(r'!!mc\s*(.*)', r'\1', str(raw_message))
         server.logger.info(f'[QQ]§e{user_id} : {processed_message}')
         server.say(f'§e[QQ] {user_id} : {processed_message}')
-    elif raw_message == "!!list" or "！！list":    # !!list指令
+    elif re.match('^!!list', str(raw_message)):    # !!list指令
         players = get_player_list()
         player_count = len(get_player_list())
         send_msg("{server_name}服务器目前共有{player_count}名玩家:{players}".format(

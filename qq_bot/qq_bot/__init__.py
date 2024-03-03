@@ -34,6 +34,9 @@ def on_load(server: PluginServerInterface, prev):
     config = server.load_config_simple(file_name='bot_config.json',
                                        target_class=Config)
     group = config.group
+    true_players = set()
+    if prev is not None:
+        true_players = prev.true_players
     send_msg(f'{config.server_name} - MCDR服务端已启动! 准备好啦喵~')
     server.register_event_listener('qq_api.on_message', on_message)
     server.register_event_listener("qq_api.on_notice", on_notice)
@@ -95,11 +98,16 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
     elif re.match('^!!list', str(raw_message)):  # !!list指令
         players = get_player_list()
         player_count = len(get_player_list())
-        send_msg("{server_name}服务器目前共有{all_player_count}名玩家:{all_players}, 其中有{true_count}位真人:{true_players}".format(
-            server_name=config.server_name, all_player_count=player_count,
-            all_players=str(players).replace('[', '').replace(']', ''),
-            true_count=len(true_players),
-            true_players=str(true_players).replace(r'(', '').replace(r')', '')))
+        if true_players == set():
+            show_players = ''
+        else:
+            show_players = str(true_players).replace(r'{', '').replace(r'}', '')
+        send_msg(
+            "{server_name}服务器目前共有{all_player_count}名玩家:{all_players}, 其中有{true_count}位真人:{show_players}".format(
+                server_name=config.server_name, all_player_count=player_count,
+                all_players=str(players).replace('[', '').replace(']', ''),
+                true_count=len(true_players),
+                show_players=show_players))
     elif raw_message.startswith('/'):
         is_command = True
     else:

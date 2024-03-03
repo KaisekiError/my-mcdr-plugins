@@ -2,7 +2,7 @@ from mcdreforged.api.types import PluginServerInterface, Info
 from mcdreforged.api.utils import Serializable
 from mcdreforged.command.builder.nodes.arguments import GreedyText
 from mcdreforged.command.builder.nodes.basic import Literal
-# from mcdreforged.info_reactor.info import Info
+from mcdreforged.minecraft.rcon import rcon_connection
 from parse import parse
 from aiocqhttp import CQHttp, Event
 from asyncio import AbstractEventLoop
@@ -22,7 +22,7 @@ user_cache: dict
 final_bot: CQHttp
 event_loop: AbstractEventLoop
 group: int
-true_players = ()
+true_players = set()
 
 
 def on_load(server: PluginServerInterface, prev):
@@ -52,7 +52,7 @@ def on_load(server: PluginServerInterface, prev):
 
 def on_server_startup(server: PluginServerInterface):
     global true_players
-    true_players = ()
+    true_players = set()
     server.logger.info(f'{config.server_name} 游戏服务器已启动')
     send_msg(f'{config.server_name} 游戏服务器已启动! わくわくになっちゃうね!')
 
@@ -60,7 +60,7 @@ def on_server_startup(server: PluginServerInterface):
 def on_server_stop(server: PluginServerInterface, server_return_code: int):
     global true_players
     server.logger.info(f'{config.server_name} 游戏服务器已停止')
-    true_players = ()
+    true_players = set()
     if server_return_code == 0:
         send_msg(f'{config.server_name} 游戏服务器已停止...到了休眠的时间了呢')
     else:

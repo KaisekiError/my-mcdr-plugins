@@ -12,10 +12,12 @@ from online_player_api import get_player_list
 import re
 import sched
 import time
+import random
+import bot_reply_dicts
 
 
 class Config(Serializable):
-    group: int = 817579249
+    group: int = 1145141919
     server_name: str = 'DefaultServer'
 
 
@@ -45,7 +47,9 @@ def on_load(server: PluginServerInterface, prev):
     is_mute = False
     if prev is not None:
         true_players = prev.true_players
-    send_msg(f'{config.server_name} - MCDR服务端已启动! 准备好啦喵~')
+        send_msg(f'{config.server_name} - {reply("on_load_prev")}')
+    else:
+        send_msg(f'{config.server_name} - {reply("on_load_new")}')
     server.register_event_listener('qq_api.on_message', on_message)
     server.register_event_listener("qq_api.on_notice", on_notice)
     server.register_event_listener("qq_api.on_request", on_request)
@@ -66,7 +70,7 @@ def on_server_startup(server: PluginServerInterface):
     true_players = set()
     is_mute = False
     server.logger.info(f'{config.server_name} 游戏服务器已启动')
-    send_msg(f'{config.server_name} 游戏服务器已启动!快来玩快来玩QwQ')
+    send_msg(f'{config.server_name} {reply("on_server_startup")}')
 
 
 def on_server_stop(server: PluginServerInterface, server_return_code: int):
@@ -74,9 +78,9 @@ def on_server_stop(server: PluginServerInterface, server_return_code: int):
     server.logger.info(f'{config.server_name} 游戏服务器已停止')
     true_players = set()
     if server_return_code == 0:
-        send_msg(f'{config.server_name} 游戏服务器已停止...到了休眠的时间了呢')
+        send_msg(f'{config.server_name} {reply("on_server_stop_normal")}')
     else:
-        send_msg(f'{config.server_name} 游戏服务器已停止...发生了什么?不妙!')
+        send_msg(f'{config.server_name} {reply("on_server_stop_abnormal")}')
 
 
 def on_player_joined(server: PluginServerInterface, player: str, info: Info):
@@ -86,7 +90,7 @@ def on_player_joined(server: PluginServerInterface, player: str, info: Info):
         if psd and psd['ip'] != 'local':
             true_players.add(psd['name'])
             if is_mute is False:
-                send_msg(f'{player} 加入了 {config.server_name} 服务器! 好耶!')
+                send_msg(f'{player} 加入了 {config.server_name} 服务器! {reply("on_player_joined")}')
 
 
 def on_player_left(server: PluginServerInterface, player: str):
@@ -94,7 +98,7 @@ def on_player_left(server: PluginServerInterface, player: str):
     if player in true_players:
         true_players.remove(player)
         if is_mute is False:
-            send_msg(f'{player} 退出了 {config.server_name} 服务器! 呜...')
+            send_msg(f'{player} 退出了 {config.server_name} 服务器! {reply("on_player_left")}')
 
 
 def on_message(server: PluginServerInterface, bot: CQHttp,
@@ -115,12 +119,19 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
             show_players = ''
         else:
             show_players = str(true_players).replace(r'{', '').replace(r'}', '')
-        send_msg(
-            "{server_name}服务器目前共有{all_player_count}名玩家:{all_players}, 其中有{true_count}位真人:{show_players}".format(
-                server_name=config.server_name, all_player_count=player_count,
-                all_players=str(players).replace('[', '').replace(']', ''),
-                true_count=len(true_players),
-                show_players=show_players))
+        if player_count == 0:
+            send_msg(f'{config.server_name} {reply("qq_list_nobody")}')
+        elif true_players == 0:
+            send_msg(f'{config.server_name} 服务器共有{player_count}名玩家: '
+                     f'{str(players).replace("[", "").replace("]", "")},'
+                     f' {reply("qq_list_no_player")} ')
+        else:
+            send_msg(
+                "{server_name} 服务器目前共有{all_player_count}名玩家: {all_players}, 其中有{true_count}人在线: {show_players}".format(
+                    server_name=config.server_name, all_player_count=player_count,
+                    all_players=str(players).replace('[', '').replace(']', ''),
+                    true_count=len(true_players),
+                    show_players=show_players))
 
     def qq_mute_set():
         global is_mute
@@ -128,9 +139,9 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
             if 0 < int(mute_time) <= 1440:
                 is_mute = True
                 mute_timer(int(mute_time))
-                send_msg(f"收到...{config.server_name}服务器开启免打扰模式{mute_time}分钟...不吵了，的说？")
+                send_msg(f"收到...{config.server_name}服务器开启免打扰模式{mute_time}分钟...{reply('qq_mute_set')}")
             else:
-                send_msg("参数错误了呢！ 请输入!!mute 服务器名 分钟数,且分钟数不超过1440")
+                send_msg(reply("qq_mute_error"))
         elif word == 'status':
             mute_status()
 
@@ -169,7 +180,7 @@ def on_request(server: PluginServerInterface, bot: CQHttp, event: Event):
 
 
 @new_thread
-def mute_timer(time_delay):
+def mute_timer(time_delay):    # 在新线程创建定时任务大概才好用？
     global current_task
 
     if current_task:  # 取消之前的任务
@@ -178,7 +189,7 @@ def mute_timer(time_delay):
     def task():  # 创建新的任务
         global is_mute
         is_mute = False
-        send_msg(f"{config.server_name}服务器解除免打扰模式...又可以刷存在感了的说")
+        send_msg(f"{config.server_name} {reply('qq_mute_timesup')}")
 
     current_task = scheduler.enter(time_delay * 60, 1, task)
     scheduler.run()
@@ -202,8 +213,15 @@ def unmute():
     if current_task is not None:  # 取消之前的任务
         scheduler.cancel(current_task)
         current_task = None
-        send_msg(f"收到...{config.server_name}服务器关闭免打扰模式...吵吵闹闹")
+        send_msg(f"{config.server_name} {reply('qq_unmute')}")
     is_mute = False
+
+
+def reply(event: str) -> str:    # bot回复字典
+    if event in bot_reply_dicts.dicts:
+        return bot_reply_dicts.dicts[event][random.randint(0, len(bot_reply_dicts.dicts[event]) - 1)]
+    else:
+        pass
 
 
 def send_msg(message: str):  # 服务端向群聊发送消息

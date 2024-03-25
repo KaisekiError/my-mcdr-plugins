@@ -9,11 +9,11 @@ from aiocqhttp import CQHttp, Event
 from asyncio import AbstractEventLoop
 from qq_api import MessageEvent
 from online_player_api import get_player_list
+from .bot_reply_dicts import *
 import re
 import sched
 import time
 import random
-import bot_reply_dicts
 
 
 class Config(Serializable):

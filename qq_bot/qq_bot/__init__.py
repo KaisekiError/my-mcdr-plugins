@@ -1,24 +1,27 @@
-from mcdreforged.api.decorator import new_thread
-from mcdreforged.api.types import PluginServerInterface, Info
-from mcdreforged.api.utils import Serializable
-from mcdreforged.command.builder.nodes.arguments import GreedyText
-from mcdreforged.command.builder.nodes.basic import Literal
-from mcdreforged.minecraft.rcon import rcon_connection
+import re
+import os
+import sched
+import time
+import random
 from parse import parse
 from aiocqhttp import CQHttp, Event
 from asyncio import AbstractEventLoop
 from qq_api import MessageEvent
 from online_player_api import get_player_list
 from .bot_reply_dicts import *
-import re
-import sched
-import time
-import random
+from mcdreforged.api.decorator import new_thread
+from mcdreforged.api.types import PluginServerInterface, Info
+from mcdreforged.api.utils import Serializable
+from mcdreforged.command.builder.nodes.arguments import GreedyText
+from mcdreforged.command.builder.nodes.basic import Literal
+from mcdreforged.minecraft.rcon import rcon_connection
 
 
 class Config(Serializable):
     group: int = 1145141919
     server_name: str = 'DefaultServer'
+    op_list: list = []
+    is_send_help: bool = False
 
 
 config: Config
@@ -37,18 +40,28 @@ current_task = None
 def on_load(server: PluginServerInterface, prev):
     global config, data, final_bot, event_loop, group, true_players, is_mute
     server.logger.info(f'{Config.server_name} - MCDR服务端运行中...')
-    qq_api = server.get_plugin_instance("qq_api")
-    final_bot = qq_api.get_bot()
-    event_loop = qq_api.get_event_loop()
+    api = server.get_plugin_instance("qq_api")
+    final_bot = api.get_bot()
+    event_loop = api.get_event_loop()
     config = server.load_config_simple(file_name='bot_config.json',
                                        target_class=Config)
     group = config.group
     true_players = set()
     is_mute = False
-    if prev is not None:
+    if prev is not None:  # 对应插件重启
         true_players = prev.true_players
         send_msg(f'{config.server_name} - {reply("on_load_prev")}')
     else:
+        if len(get_player_list()) != 0:  # 插件启动且服内有人，对应插件被禁用后启动
+            with os.open('/server/logs/latest.log', 'r') as f:
+                log_lines = f.readlines()
+                for player in get_player_list():
+                    for line in reversed(log_lines):
+                        psd = parse('[{time}] [{thread}]: {name}[{ip}] logged in with entity id {id} at {loc}', line)
+                        if psd and psd['name'] == player and psd['ip'] != 'local':
+                            true_players.add(player)
+                            break
+            f.close()
         send_msg(f'{config.server_name} - {reply("on_load_new")}')
     server.register_event_listener('qq_api.on_message', on_message)
     server.register_event_listener("qq_api.on_notice", on_notice)
@@ -62,7 +75,7 @@ def on_load(server: PluginServerInterface, prev):
 
     server.register_help_message("!!qq <msg>", "向QQ群发送消息")
     server.register_command(Literal('!!qq').
-                            then(GreedyText("message").runs(qq)))  # 这段拿来的看不懂
+                            then(GreedyText("message").runs(qq)))  # 指令树？拿来的不太懂
 
 
 def on_server_startup(server: PluginServerInterface):
@@ -104,60 +117,108 @@ def on_player_left(server: PluginServerInterface, player: str):
 def on_message(server: PluginServerInterface, bot: CQHttp,
                event: MessageEvent):  # qq群聊向minecraft发送消息
     global true_players
-    raw_message = event.message
-    user_id = event.sender['nickname']
+    message = event.message
+    sender = event.sender['nickname']
+    user_id = event.user_id
 
     def qq_message():
-        processed_message = re.sub(r'!!mc\s*(.*)', r'\1', str(raw_message))
-        server.logger.info(f'[QQ]§e{user_id} : {processed_message}')
-        server.say(f'§e[QQ] {user_id} : {processed_message}')
+        processed_message = re.sub(r'!!mc\s*(.*)', r'\1', str(message))
+        server.logger.info(f'[QQ]§e{sender} : {processed_message}')
+        server.say(f'§e[QQ] {sender} : {processed_message}')
 
     def qq_list():
-        players = get_player_list()
-        player_count = len(get_player_list())
-        if true_players == set():
-            show_players = ''
-        else:
-            show_players = str(true_players).replace(r'{', '').replace(r'}', '')
-        if player_count == 0:
-            send_msg(f'{config.server_name} {reply("qq_list_nobody")}')
-        elif true_players == 0:
-            send_msg(f'{config.server_name} 服务器共有{player_count}名玩家: '
-                     f'{str(players).replace("[", "").replace("]", "")},'
-                     f' {reply("qq_list_no_player")} ')
-        else:
-            send_msg(
-                "{server_name} 服务器目前共有{all_player_count}名玩家: {all_players}, 其中有{true_count}人在线: {show_players}".format(
-                    server_name=config.server_name, all_player_count=player_count,
-                    all_players=str(players).replace('[', '').replace(']', ''),
-                    true_count=len(true_players),
-                    show_players=show_players))
-
-    def qq_mute_set():
-        global is_mute
-        if word == config.server_name or word == 'all':
-            if 0 < int(mute_time) <= 1440:
-                is_mute = True
-                mute_timer(int(mute_time))
-                send_msg(f"收到...{config.server_name}服务器开启免打扰模式{mute_time}分钟...{reply('qq_mute_set')}")
+        list_server_name = re.sub(r'!!list\s*(.*)', r'\1', str(message))
+        if list_server_name == config.server_name or list_server_name == "":
+            players = get_player_list()
+            player_count = len(get_player_list())  # 这段感觉写得有点糟
+            true_player_count = len(true_players)
+            if true_players == set():
+                show_players = ''
             else:
-                send_msg(reply("qq_mute_error"))
-        elif word == 'status':
-            mute_status()
+                show_players = str(true_players).replace(r'{', '').replace(r'}', '')
+            if player_count == 0:
+                send_msg(f'{config.server_name} {reply("qq_list_nobody")}')
+            elif true_player_count == 0:
+                send_msg(f'{config.server_name} 服务器共有{player_count}名玩家: '
+                         f'{str(players).replace("[", "").replace("]", "")},'
+                         f' {reply("qq_list_no_player")} ')
+            else:
+                send_msg(
+                    "{server_name} 服务器目前共有{all_player_count}名玩家: {all_players}, "
+                    "其中有{true_count}人在线: {show_players}".format(
+                        server_name=config.server_name, all_player_count=player_count,
+                        all_players=str(players).replace('[', '').replace(']', ''),
+                        true_count=true_player_count,
+                        show_players=show_players))
+        else:
+            reply('qq_param_error')
+
+    def qq_mute_set():  # 这里就先设置为全局的好了，分玩家的太难做了（
+        global is_mute
+        pattern = "!!mute {Server:w} {time:d}"
+        result = parse(pattern, message)
+        if result:
+            r_server = result['Server']
+            r_time = result['time']
+            if r_server == config.server_name or r_server == 'all' or r_server is None:
+                if 0 < int(r_time) <= 1440:
+                    is_mute = True
+                    mute_timer(int(r_time))
+                    send_msg(f"收到...{config.server_name}服务器将不会推送消息{r_time}分钟, "
+                             f"{reply('qq_mute_set')}")
+                    send_msg("1")
+                elif r_time is None:
+                    is_mute = True
+                    mute_timer(120)
+                    send_msg(f"收到...{config.server_name}服务器将不会推送消息120分钟, "
+                             f"{reply('qq_mute_set')}")
+                    send_msg("2")
+                else:
+                    send_msg(reply('qq_param_error'))
+            elif r_server == 'status' and r_time is None:
+                mute_status()
+            else:
+                send_msg(reply('qq_param_error'))
+        else:
+            send_msg(f"收到...{config.server_name}服务器将不会推送消息120分钟, "
+                     f"{reply('qq_mute_set')}")
 
     def qq_unmute():
         unmute()
 
-    if re.match('^!!mc .*', str(raw_message)):  # !!mc指令
+    def qq_help():
+        if config.is_send_help:
+            pattern = '!!help {command:w}'
+            result = parse(pattern, message)
+            long_description = ''
+            if result:
+                command = result['command']
+                if command in bot_reply_dicts.help_message.keys():
+                    for key, value in bot_reply_dicts.help_message[command].items():
+                        long_description += f"{key}: {value}\n"
+                    send_msg(long_description.strip())
+                else:
+                    reply('qq_param_error')
+            else:
+                for category, commands in bot_reply_dicts.help_message.items():
+                    for key, value in commands.items():
+                        long_description += f"{key}: {value}\n"
+                send_msg(long_description.strip())
+
+    if re.match('^!!mc .*', str(message)):  # !!mc指令
         qq_message()
-    elif re.match('^!!list', str(raw_message)):  # !!list指令
+    elif re.match('^!!list( .*)?$', str(message)):  # !!list指令
         qq_list()
-    elif match := re.match(r'!!mute\s*(\w+)\s*(\d+)?', str(raw_message)):
-        word, mute_time = match.groups()  # !!mute指令
+    elif re.match('^!!mute( .*)?$', str(message)):  # !!mute指令
         qq_mute_set()
-    elif re.match('^!!unmute', str(raw_message)):
-        qq_unmute()  # !!unmute指令
-    elif raw_message.startswith('/'):
+    # elif match := re.match(r'!!mute\s*(\w+)\s*(\d+)?', str(message)):
+    #     word, mute_time = match.groups()
+    #     qq_mute_set()
+    elif re.match('^!!unmute', str(message)):  # !!unmute指令
+        qq_unmute()
+    elif re.match('^!!help( .*)?$', str(message)):  # 显示帮助信息
+        qq_help()
+    elif message.startswith('/'):
         is_command = True
     else:
         pass
@@ -180,7 +241,7 @@ def on_request(server: PluginServerInterface, bot: CQHttp, event: Event):
 
 
 @new_thread
-def mute_timer(time_delay):    # 在新线程创建定时任务大概才好用？
+def mute_timer(time_delay):  # 在新线程创建定时任务大概才好用？
     global current_task
 
     if current_task:  # 取消之前的任务
@@ -217,7 +278,7 @@ def unmute():
     is_mute = False
 
 
-def reply(event: str) -> str:    # bot回复字典
+def reply(event: str) -> str:  # bot回复字典
     if event in bot_reply_dicts.dicts:
         return bot_reply_dicts.dicts[event][random.randint(0, len(bot_reply_dicts.dicts[event]) - 1)]
     else:
@@ -227,3 +288,10 @@ def reply(event: str) -> str:    # bot回复字典
 def send_msg(message: str):  # 服务端向群聊发送消息
     event_loop.create_task(
         final_bot.send_group_msg(group_id=group, message=message))
+
+
+def check_permission(user_id: int) -> bool:  # 检查消息发送者权限
+    if user_id in config.op_list:
+        return True
+    else:
+        return False

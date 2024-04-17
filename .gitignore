@@ -8,4 +8,5 @@ out
 gen
 /qq_bot/qq_bot/qq_api.py
 /qq_bot/qq_bot/online_player_api.py
+/qq_bot/qq_bot/test.py
 *.mcdr

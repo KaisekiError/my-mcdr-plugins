@@ -155,9 +155,9 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
     def qq_mute_set():  # 这里就先设置为全局的好了，分玩家的太难做了，并且写的傻大黑粗qwq
         global is_mute
         pattern_1 = r'^!!mute+(\s*)$'
-        pattern_2 = r'^!!mute\s+(\d*)$'
-        pattern_3 = r'^!!mute\s+(\w*)$'
-        pattern_4 = r'^!!mute\s+(\w*)\s+(\d*)$'
+        pattern_2 = r'^!!mute\s+(\d+)$'
+        pattern_3 = r'^!!mute\s+(\D+)$'
+        pattern_4 = r'^!!mute\s+(\w+)\s+(\d+)$'
         match_1 = re.match(pattern_1, message)
         match_2 = re.match(pattern_2, message)
         match_3 = re.match(pattern_3, message)
@@ -172,14 +172,16 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
             else:
                 send_msg(reply('qq_param_error'))  # 定时的时间参数出错
         elif match_3:
-            r_server = match_3.group()
+            r_server = match_3.group(1)
             if r_server == 'status':
                 mute_status()
             elif r_server == config.server_name or r_server == 'all':
                 send_msg(f"收到...{config.server_name}服务器将不会推送消息120分钟, "
                          f"{reply('qq_mute_set')}")
+            else:
+                send_msg(reply('qq_param_error'))
         elif match_2:
-            r_time = match_2.group()
+            r_time = match_2.group(1)
             if 0 < int(r_time) <= 1440:
                 is_mute = True
                 mute_timer(int(r_time))
@@ -294,7 +296,7 @@ def mute_status():
             send_msg(f"{config.server_name}服务器免打扰模式中，"
                      f"将在 {int(remaining_time / 60)} 分钟后解除")
     else:
-        return None
+        send_msg(f"{config.server_name} {reply('qq_not_mute')}")
 
 
 def reply(event: str) -> str:  # bot回复字典

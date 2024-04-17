@@ -1,5 +1,4 @@
 import re
-import os
 import sched
 import time
 import random
@@ -53,7 +52,7 @@ def on_load(server: PluginServerInterface, prev):
         send_msg(f'{config.server_name} - {reply("on_load_prev")}')
     else:
         if len(get_player_list()) != 0:  # 插件启动且服内有人，对应插件被禁用后启动
-            with os.open('/server/logs/latest.log', 'r') as f:
+            with open('/server/logs/latest.log', 'r') as f:
                 log_lines = f.readlines()
                 for player in get_player_list():
                     for line in reversed(log_lines):

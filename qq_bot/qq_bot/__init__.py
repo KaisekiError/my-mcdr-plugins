@@ -121,7 +121,7 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
     user_id = event.user_id
 
     def qq_message():
-        processed_message = re.sub(r'!!mc\s*(.*)', r'\1', str(message))
+        processed_message = re.sub(r'^!!mc\s*(.*)', r'\1', str(message))
         server.logger.info(f'[QQ]§e{sender} : {processed_message}')
         server.say(f'§e[QQ] {sender} : {processed_message}')
 
@@ -139,7 +139,7 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
                 send_msg(f'{config.server_name} {reply("qq_list_nobody")}')
             elif true_player_count == 0:
                 send_msg(f'{config.server_name} 服务器共有{player_count}名玩家: '
-                         f'{str(players).replace("[", "").replace("]", "")},'
+                         f'{str(players).replace("[", "").replace("]", "")}, '
                          f' {reply("qq_list_no_player")} ')
             else:
                 send_msg(
@@ -152,38 +152,67 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
         else:
             reply('qq_param_error')
 
-    def qq_mute_set():  # 这里就先设置为全局的好了，分玩家的太难做了（
+    def qq_mute_set():  # 这里就先设置为全局的好了，分玩家的太难做了，并且写的傻大黑粗qwq
         global is_mute
-        pattern = "!!mute {Server:w} {time:d}"
-        result = parse(pattern, message)
-        if result:
-            r_server = result['Server']
-            r_time = result['time']
-            if r_server == config.server_name or r_server == 'all' or r_server is None:
-                if 0 < int(r_time) <= 1440:
-                    is_mute = True
-                    mute_timer(int(r_time))
-                    send_msg(f"收到...{config.server_name}服务器将不会推送消息{r_time}分钟, "
-                             f"{reply('qq_mute_set')}")
-                    send_msg("1")
-                elif r_time is None:
-                    is_mute = True
-                    mute_timer(120)
-                    send_msg(f"收到...{config.server_name}服务器将不会推送消息120分钟, "
-                             f"{reply('qq_mute_set')}")
-                    send_msg("2")
-                else:
-                    send_msg(reply('qq_param_error'))
-            elif r_server == 'status' and r_time is None:
-                mute_status()
+        pattern_1 = r'^!!mute+(\s*)$'
+        pattern_2 = r'^!!mute\s+(\d*)$'
+        pattern_3 = r'^!!mute\s+(\w*)$'
+        pattern_4 = r'^!!mute\s+(\w*)\s+(\d*)$'
+        match_1 = re.match(pattern_1, message)
+        match_2 = re.match(pattern_2, message)
+        match_3 = re.match(pattern_3, message)
+        match_4 = re.match(pattern_4, message)
+        if match_4:
+            r_server, r_time = match_4.groups()
+            if r_server == config.server_name or r_server == 'all' and 0 < int(r_time) <= 1440:
+                is_mute = True
+                mute_timer(int(r_time))
+                send_msg(f"收到...{config.server_name}服务器将不会推送消息{r_time}分钟, "
+                         f"{reply('qq_mute_set')}")
             else:
-                send_msg(reply('qq_param_error'))
-        else:
+                send_msg(reply('qq_param_error'))  # 定时的时间参数出错
+        elif match_3:
+            r_server = match_3.group()
+            if r_server == 'status':
+                mute_status()
+            elif r_server == config.server_name or r_server == 'all':
+                send_msg(f"收到...{config.server_name}服务器将不会推送消息120分钟, "
+                         f"{reply('qq_mute_set')}")
+        elif match_2:
+            r_time = match_2.group()
+            if 0 < int(r_time) <= 1440:
+                is_mute = True
+                mute_timer(int(r_time))
+                send_msg(f"收到...{config.server_name}服务器将不会推送消息{r_time}分钟, "
+                         f"{reply('qq_mute_set')}")
+            else:
+                send_msg(reply('qq_param_error'))  # 定时的时间参数出错
+        elif match_1:
             send_msg(f"收到...{config.server_name}服务器将不会推送消息120分钟, "
                      f"{reply('qq_mute_set')}")
+        else:
+            send_msg(reply('qq_param_error'))  # 定时的时间参数出错
 
-    def qq_unmute():
-        unmute()
+    def qq_unmute():    # 还是繁琐了 跟mute一样都是依托 之后再改改吧
+        global current_task, is_mute
+        pattern_1 = r'^!!unmute$'
+        pattern_2 = r'^!!unmute\s(\w*)?$'
+        match_1 = re.match(pattern_1, message)
+        match_2 = re.match(pattern_2, message)
+        if match_1:
+            if current_task is not None:  # 取消之前的任务
+                scheduler.cancel(current_task)
+                current_task = None
+                send_msg(f"{config.server_name} {reply('qq_unmute')}")
+            is_mute = False
+        elif match_2:
+            if match_2.group(1) == config.server_name or match_2.group(1) == 'all':
+                if current_task is not None:  # 取消之前的任务
+                    scheduler.cancel(current_task)
+                    current_task = None
+                    send_msg(f"{config.server_name} {reply('qq_unmute')}")
+        else:
+            send_msg(reply('qq_param_error'))
 
     def qq_help():
         if config.is_send_help:
@@ -213,7 +242,7 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
     # elif match := re.match(r'!!mute\s*(\w+)\s*(\d+)?', str(message)):
     #     word, mute_time = match.groups()
     #     qq_mute_set()
-    elif re.match('^!!unmute', str(message)):  # !!unmute指令
+    elif re.match('^!!unmute( .*)?$', str(message)):  # !!unmute指令
         qq_unmute()
     elif re.match('^!!help( .*)?$', str(message)):  # 显示帮助信息
         qq_help()
@@ -266,15 +295,6 @@ def mute_status():
                      f"将在 {int(remaining_time / 60)} 分钟后解除")
     else:
         return None
-
-
-def unmute():
-    global current_task, is_mute
-    if current_task is not None:  # 取消之前的任务
-        scheduler.cancel(current_task)
-        current_task = None
-        send_msg(f"{config.server_name} {reply('qq_unmute')}")
-    is_mute = False
 
 
 def reply(event: str) -> str:  # bot回复字典

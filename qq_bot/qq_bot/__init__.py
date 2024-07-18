@@ -43,13 +43,13 @@ current_task = None
 def on_load(server: PluginServerInterface, prev):
     global config, data, final_bot, event_loop, group, true_players, is_mute
     server.logger.info(f'{Config.server_name} - MCDR服务端运行中...')
-    if not config.is_send_message:
-        server.logger.info(f'{Config.server_name} - 上下线消息发送已关闭')
     api = server.get_plugin_instance("qq_api")
     final_bot = api.get_bot()
     event_loop = api.get_event_loop()
     config = server.load_config_simple(file_name='bot_config.json',
                                        target_class=Config)
+    if not config.is_send_message:
+        server.logger.info(f'{Config.server_name} - 上下线消息发送已关闭')
     group = config.group
     true_players = set()
     is_mute = False

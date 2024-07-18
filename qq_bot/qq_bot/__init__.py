@@ -335,7 +335,7 @@ def send_msg(message: str):  # 服务端向群聊发送消息
 
 
 def send_msg_lookup(message: str):  # 也是发送消息，只不过检查是否配置了不发送上下线消息
-    if not config.is_send_message:
+    if config.is_send_message:
         event_loop.create_task(
             final_bot.send_group_msg(group_id=group, message=message))
 

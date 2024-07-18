@@ -63,11 +63,11 @@ def on_load(server: PluginServerInterface, prev):
                     log_lines = f.readlines()
                     for player in get_player_list():
                         for line in reversed(log_lines):
-                            psd = parse('[{time}] [{thread}]: {name}[{ip}] logged in with entity id {id} at {loc}',
-                                        line)
-                            if psd and psd['name'] == player and psd['ip'] != 'local':
-                                true_players.add(player)
-                                break
+                            psd = parse(
+                                '[{time}] [{thread}] [{environment}]: {name}[{ip}] logged in with entity id {id} at {loc}',
+                                line)
+                            true_players.add(player)
+                            break
                 f.close()
             except FileNotFoundError:
                 server.logger.warning("未找到日志文件")
@@ -157,18 +157,11 @@ def on_message(server: PluginServerInterface, bot: CQHttp,
                 show_players = str(true_players).replace(r'{', '').replace(r'}', '')
             if player_count == 0:
                 send_msg(f'{config.server_name} {reply("qq_list_nobody")}')
-            elif true_player_count == 0:
-                send_msg(f'{config.server_name} 服务器共有{player_count}名玩家: '
-                         f'{str(players).replace("[", "").replace("]", "")}, '
-                         f' {reply("qq_list_no_player")} ')
             else:
                 send_msg(
-                    "{server_name} 服务器目前共有{all_player_count}名玩家: {all_players}, "
-                    "其中有{true_count}人在线: {show_players}".format(
+                    "{server_name} 服务器目前共有{all_player_count}名玩家: {all_players}, ".format(
                         server_name=config.server_name, all_player_count=player_count,
-                        all_players=str(players).replace('[', '').replace(']', ''),
-                        true_count=true_player_count,
-                        show_players=show_players))
+                        all_players=str(players).replace('[', '').replace(']', '')))
         else:
             reply('qq_param_error')
 
@@ -335,7 +328,7 @@ def send_msg(message: str):  # 服务端向群聊发送消息
 
 
 def send_msg_lookup(message: str):  # 也是发送消息，只不过检查是否配置了不发送上下线消息
-    if not config.is_send_message:
+    if config.is_send_message:
         event_loop.create_task(
             final_bot.send_group_msg(group_id=group, message=message))
 

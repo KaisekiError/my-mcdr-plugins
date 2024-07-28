@@ -90,21 +90,34 @@ def on_load(server: PluginServerInterface, prev):
                             then(GreedyText("message").runs(qq)))  # 获取message,指令源和上下文传参并运行
 
     def plugin_params(src):
-        server.reply(src, f'是否默认在群内发送玩家上下线消息:is_send_message:{config.is_send_message}')
-        server.reply(src, f'是否将全部qq群消息转发至群内:is_broadcast:{config.is_broadcast}')
+        if src.is_player:
+            server.reply(src, f'是否默认在群内发送玩家上下线消息:is_send_message:{config.is_send_message}')
+            server.reply(src, f'是否将全部qq群消息转发至群内:is_broadcast:{config.is_broadcast}')
+        else:
+            server.logger.info(f'是否默认在群内发送玩家上下线消息:is_send_message:{config.is_send_message}')
+            server.logger.info(f'是否将全部qq群消息转发至群内:is_broadcast:{config.is_broadcast}')
 
     def change_params(src, ctx):
         if ctx['arg'] == "is_send_message":
             config.is_send_message = ctx['flag']
-            server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
-            server.reply(src, "将会发送玩家上下线信息到群内") if ctx['flag'] else server.reply(src, "不会发送玩家上下线信息到群内")
+            server.logger.info(f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
+            if src.is_player:
+                server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
+                server.reply(src, "将会发送玩家上下线信息到群内") if ctx['flag'] else server.reply(src,
+                                                                                                   "不会发送玩家上下线信息到群内")
         elif ctx['arg'] == "is_broadcast":
             config.is_broadcast = ctx['flag']
-            server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
-            server.reply(src, "将会播报所有群内消息到服内") if ctx['flag'] else server.reply(src, "不会播报所有群内消息到服内")
+            server.logger.info(f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
+            if src.is_player:
+                server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
+                server.reply(src, "将会播报所有群内消息到服内") if ctx['flag'] else server.reply(src,
+                                                                                                 "不会播报所有群内消息到服内")
         else:
-            server.reply(src, bot_reply_dicts.dicts['qq_param_error'][
-                random.randint(0, len(bot_reply_dicts.dicts['qq_param_error']) - 1)])
+            server.logger.info(bot_reply_dicts.dicts['qq_param_error'][
+                                   random.randint(0, len(bot_reply_dicts.dicts['qq_param_error']) - 1)])
+            if src.is_player:
+                server.reply(src, bot_reply_dicts.dicts['qq_param_error'][
+                    random.randint(0, len(bot_reply_dicts.dicts['qq_param_error']) - 1)])
 
     server.register_help_message("!!qqbot params", "检查插件的配置情况")
     server.register_help_message("!!qqbot set <param> <true/false>", "更改插件的一些默认配置", permission=3)

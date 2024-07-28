@@ -81,8 +81,9 @@ def on_load(server: PluginServerInterface, prev):
     def qq(src, ctx):
         player = src.player if src.is_player else "Console"
         # 通过qq指令发送的消息会同步发送到主群中
-        msg = f"[{config.server_name}] <{player}> {ctx['message']}"
-        send_msg(msg)
+        if player == "Console":
+            msg = f"[{config.server_name}] <{player}> {ctx['message']}"
+            send_msg(msg)
 
     server.register_help_message("!!qq <msg>", "向QQ群发送消息")
     server.register_command(Literal('!!qq').

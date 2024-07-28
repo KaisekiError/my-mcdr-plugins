@@ -23,8 +23,9 @@ class Config(Serializable):
     server_name: str = 'DefaultServer'
     server_name_alias: list = []
     op_list: list = []
-    is_send_help: bool = False
-    is_send_message: bool = True
+    is_send_help: bool = False    # 用于多个服务器只发送一个help信息，用于主服上
+    is_send_message: bool = True    # 这个实际上是上下线消息的默认开启
+    is_broadcast: bool = False    # 是否将所有的qq群消息广播到mc内
 
 
 config: Config
@@ -78,15 +79,15 @@ def on_load(server: PluginServerInterface, prev):
     server.register_event_listener("qq_api.on_request", on_request)
     builder = SimpleCommandBuilder()
 
+    server.register_help_message("!!qq <msg>", "向QQ群发送消息")
+    server.register_command(Literal('!!qq').
+                            then(GreedyText("message").runs(qq)))  # 获取message,指令源和上下文传参并运行
     def qq(src, ctx):
         player = src.player if src.is_player else "Console"
         # 通过qq指令发送的消息会同步发送到主群中
         msg = f"[{config.server_name}] <{player}> {ctx['message']}"
         send_msg(msg)
 
-    server.register_help_message("!!qq <msg>", "向QQ群发送消息")
-    server.register_command(Literal('!!qq').
-                            then(GreedyText("message").runs(qq)))  # 获取message,指令源和上下文传参并运行
     server.register_help_message("!!watch <bot_name>", "假人监视的情况")
     server.register_help_message("!!watch <bot_name>", "监视假人挂机")
     server.register_help_message("!!unwatch", "取消所有假人的监视")
@@ -135,10 +136,12 @@ def on_player_left(server: PluginServerInterface, player: str):
 
 def on_message(server: PluginServerInterface, bot: CQHttp,
                event: MessageEvent):  # qq群聊向minecraft发送消息
-    global true_players
+    global true_players, config
     message = event.message
     sender = event.sender['nickname']
     user_id = event.user_id
+    if config.is_broadcast:    # 播报qq群内所有信息
+        server.say(f'§e[QQ] {sender} : {message}')
 
     def qq_message():
         processed_message = re.sub(r'^!!mc\s*(.*)', r'\1', str(message))

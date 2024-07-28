@@ -1,21 +1,21 @@
+import random
 import re
 import sched
 import time
-import random
-import json
-from parse import parse
-from aiocqhttp import CQHttp, Event
 from asyncio import AbstractEventLoop
-from qq_api import MessageEvent
-from online_player_api import get_player_list
-from .bot_reply_dicts import *
+
+from aiocqhttp import CQHttp, Event
+from mcdreforged.api.command import SimpleCommandBuilder
 from mcdreforged.api.decorator import new_thread
 from mcdreforged.api.types import PluginServerInterface, Info
 from mcdreforged.api.utils import Serializable
-from mcdreforged.api.command import SimpleCommandBuilder, Integer, Text, GreedyText
 from mcdreforged.command.builder.nodes.arguments import GreedyText, Text, Boolean
 from mcdreforged.command.builder.nodes.basic import Literal
-from mcdreforged.minecraft.rcon import rcon_connection
+from parse import parse
+
+from online_player_api import get_player_list
+from qq_api import MessageEvent
+from .bot_reply_dicts import *
 
 
 class Config(Serializable):
@@ -174,7 +174,39 @@ def on_player_left(server: PluginServerInterface, player: str):
 def on_message(server: PluginServerInterface, bot: CQHttp,
                event: MessageEvent):  # qq群聊向minecraft发送消息
     global true_players, config
-    message = event.message
+    cq_code_pattern = re.compile(r'\[CQ:(\w+),[^]]+]')
+
+    def replace_cq_code(match):  # https://docs.go-cqhttp.org/cqcode/
+        cq_type = match.group(1)
+        if cq_type == 'face':  # 可以自己加
+            return '[表情] '
+        elif cq_type == 'record':
+            return '[语音] '
+        elif cq_type == 'image':
+            return '[图片] '
+        elif cq_type == 'video':
+            return '[视频] '
+        elif cq_type == 'music':
+            return '[音乐] '
+        elif cq_type == 'at':
+            return '[@] '
+        elif cq_type == 'reply':
+            return '[回复] '
+        elif cq_type == 'redbag':
+            return '[红包] '
+        elif cq_type == 'shake':
+            return '[戳一戳] '
+        elif cq_type == 'share':
+            return '[链接分享] '
+        elif cq_type == 'forward':
+            return '[合并转发] '
+        else:
+            return ' '
+
+    def cq_filter(_):
+        return cq_code_pattern.sub(replace_cq_code, _).strip()
+
+    message = cq_filter(event.message)
     sender = event.sender['nickname']
     user_id = event.user_id
     if config.is_broadcast:  # 播报qq群内所有信息

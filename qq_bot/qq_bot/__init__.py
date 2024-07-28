@@ -97,7 +97,7 @@ def on_load(server: PluginServerInterface, prev):
         if ctx['arg'] == "is_send_message":
             config.is_send_message = ctx['flag']
             server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
-            server.reply(src,"将会发送玩家上下线信息到群内") if ctx['flag'] else server.reply(src, "不会发送玩家上下线信息到群内")
+            server.reply(src, "将会发送玩家上下线信息到群内") if ctx['flag'] else server.reply(src, "不会发送玩家上下线信息到群内")
         elif ctx['arg'] == "is_broadcast":
             config.is_broadcast = ctx['flag']
             server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")

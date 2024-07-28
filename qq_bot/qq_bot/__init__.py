@@ -13,7 +13,7 @@ from mcdreforged.api.decorator import new_thread
 from mcdreforged.api.types import PluginServerInterface, Info
 from mcdreforged.api.utils import Serializable
 from mcdreforged.api.command import SimpleCommandBuilder, Integer, Text, GreedyText
-from mcdreforged.command.builder.nodes.arguments import GreedyText
+from mcdreforged.command.builder.nodes.arguments import GreedyText, Text, Boolean
 from mcdreforged.command.builder.nodes.basic import Literal
 from mcdreforged.minecraft.rcon import rcon_connection
 
@@ -89,7 +89,30 @@ def on_load(server: PluginServerInterface, prev):
     server.register_command(Literal('!!qq').
                             then(GreedyText("message").runs(qq)))  # 获取message,指令源和上下文传参并运行
 
-    server.register_help_message("!!watch <bot_name>", "假人监视的情况")
+    def plugin_params(src):
+        server.reply(src, f'是否默认在群内发送玩家上下线消息:is_send_message:{config.is_send_message}')
+        server.reply(src, f'是否将全部qq群消息转发至群内:is_broadcast:{config.is_broadcast}')
+
+    def change_params(src, ctx):
+        if ctx['arg'] == "is_send_message":
+            config.is_send_message = ctx['flag']
+            server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
+            server.reply(src,"将会发送玩家上下线信息到群内") if ctx['flag'] else server.reply(src, "不会发送玩家上下线信息到群内")
+        elif ctx['arg'] == "is_broadcast":
+            config.is_broadcast = ctx['flag']
+            server.reply(src, f"参数:{ctx['arg']}已被设置为{ctx['flag']}")
+            server.reply(src, "将会播报所有群内消息到服内") if ctx['flag'] else server.reply(src, "不会播报所有群内消息到服内")
+        else:
+            server.reply(src, bot_reply_dicts.dicts['qq_param_error'][
+                random.randint(0, len(bot_reply_dicts.dicts['qq_param_error']) - 1)])
+
+    server.register_help_message("!!qqbot params", "检查插件的配置情况")
+    server.register_help_message("!!qqbot set <param> <true/false>", "更改插件的一些默认配置", permission=3)
+    server.register_command(Literal('!!qqbot').then(Literal('params').runs(plugin_params)). \
+        then(Literal('set').then(
+        Text('arg').then(Boolean('flag').requires(lambda src: src.has_permission(3)).runs(change_params)))))
+
+    server.register_help_message("!!watch", "假人监视的情况")
     server.register_help_message("!!watch <bot_name>", "监视假人挂机")
     server.register_help_message("!!unwatch", "取消所有假人的监视")
     server.register_help_message("!!unwatch <bot_name>", "取消假人的监视")
